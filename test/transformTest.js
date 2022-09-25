@@ -38,7 +38,7 @@ describe('transform tests', function() {
     assert.strictEqual(matches.length, 4);
     assert.ok(/describe\("Button\.stories\.jsx component", function\(\) {/.test(text));
 
-    assert.ok(text.includes(`it(
+    const textToMatch = `it(
     "exported Primary",
     function(browser) {
       const test = function() {
@@ -46,9 +46,9 @@ describe('transform tests', function() {
           browser2.init();
         };
       }({
-        data: { "exportName": "Primary", "modulePath": "/Users/andrei/workspace/nightwatch-esbuild-transform/test/data/Button.stories.jsx" },
+        data: { "exportName": "Primary", "modulePath": "${path.join(__dirname, 'data/Button.stories.jsx')}" },
         publicUrl: "/test/data/Button.stories.jsx",
-        modulePath: "/Users/andrei/workspace/nightwatch-esbuild-transform/test/data/Button.stories.jsx",
+        modulePath: "${path.join(__dirname, 'data/Button.stories.jsx')}",
         exportName: "Primary"
       });
       const result = test(browser);
@@ -58,7 +58,9 @@ describe('transform tests', function() {
         return component.test(browser, data);
       }
     }
-  );`));
+  );`;
+
+    assert.ok(text.includes(textToMatch));
   });
 
   it('test basic jsx transform with async createTest', async function() {
@@ -88,9 +90,9 @@ describe('transform tests', function() {
           browser2.init();
         };
       }({
-        data: { "exportName": "Primary", "modulePath": "/Users/andrei/workspace/nightwatch-esbuild-transform/test/data/Button.stories.jsx" },
+        data: { "exportName": "Primary", "modulePath": "${path.join(__dirname, 'data/Button.stories.jsx')}" },
         publicUrl: "/test/data/Button.stories.jsx",
-        modulePath: "/Users/andrei/workspace/nightwatch-esbuild-transform/test/data/Button.stories.jsx",
+        modulePath: "${path.join(__dirname, 'data/Button.stories.jsx')}",
         exportName: "Primary"
       }));
       const result = await Promise.resolve(test(browser));
