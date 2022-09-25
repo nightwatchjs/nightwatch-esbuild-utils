@@ -1,5 +1,8 @@
 {
-  "name": "nightwatch-esbuild-transform",
+  "name": "@nightwatch/esbuild-utils",
+  "publishConfig": {
+    "access": "public"
+  },
   "version": "0.1.0",
   "description": "",
   "main": "index.js",

@@ -82,7 +82,7 @@ describe('transform tests', function() {
 
     assert.strictEqual(matches.length, 4);
     assert.ok(/describe\("Button\.stories\.jsx component", function\(\) {/.test(text));
-    
+
     assert.ok(text.includes(`it(
     "exported Primary",
     async function(browser) {
