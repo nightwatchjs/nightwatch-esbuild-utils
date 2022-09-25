@@ -1,0 +1,22 @@
+{
+  "name": "nightwatch-esbuild-transform",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "eslint": "eslint src test",
+    "test": "mocha"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "esbuild": "^0.15.8"
+  },
+  "devDependencies": {
+    "eslint": "^8.23.1",
+    "mocha": "^10.0.0",
+    "prop-types": "^15.8.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  }
+}
