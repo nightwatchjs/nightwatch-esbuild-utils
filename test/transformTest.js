@@ -79,6 +79,7 @@ console.log(text)
 
     assert.strictEqual(matches.length, 4);
     assert.ok(/describe\("Button\.stories\.jsx component", function\(\) {/.test(text));
+    
     console.log(text)
     assert.ok(text.includes(`it(
     "exported Primary",
