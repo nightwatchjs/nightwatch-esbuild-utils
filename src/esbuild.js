@@ -1,5 +1,6 @@
 const fs = require('fs');
 const {build, transform} = require('esbuild');
+const merge = require('lodash.merge');
 
 const ESBUILD_LOADERS = Object.freeze({
   '.js': 'js',
@@ -28,6 +29,7 @@ const ESBUILD_CONFIG = Object.freeze({
   write: false,
   format: 'cjs',
   loader: ESBUILD_LOADERS,
+  outdir: './out',
   bundle: true,
   target: 'node12',
   platform: 'node'
@@ -83,8 +85,10 @@ const findExportNamesIn = async function (modulePath) {
   return Array.from(names);
 };
 
-const buildFile = function(modulePath) {
-  return build({...ESBUILD_CONFIG, entryPoints: [modulePath]});
+const buildFile = function(modulePath, additionalConfig = {}) {
+  const config = merge({}, ESBUILD_CONFIG, additionalConfig);
+
+  return build({...config, entryPoints: [modulePath]});
 };
 
 const transformFile = function(content, sourcefile, ext) {

@@ -13,7 +13,8 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "esbuild": "^0.15.8"
+    "esbuild": "^0.15.8",
+    "lodash.merge": "^4.6.2"
   },
   "devDependencies": {
     "eslint": "^8.23.1",
