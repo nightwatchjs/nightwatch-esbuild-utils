@@ -66,7 +66,7 @@ const itFn = function({name, exportName, createTest, modulePath, onlyConditionFn
  * @param {Object} argv
  * @param {Object} nightwatch_settings
  */
-module.exports = async function (modulePath, {name, data, exports, createTest, transformCode, onlyConditionFn}, {
+module.exports = async function (modulePath, {name, data, exports, createTest, transformCode = (code) => code, onlyConditionFn}, {
   argv = {}, nightwatch_settings = {}
 }) {
   if (typeof createTest != 'function') {
@@ -98,6 +98,7 @@ module.exports = async function (modulePath, {name, data, exports, createTest, t
 
   const describeFn = `describe('${path.basename(modulePath)} component', function () {
     let componentDefault;
+    this.skipTestcasesOnFail = false;
     try {
      componentDefault = ${path.basename(modulePath, path.extname(modulePath)).replace(/\./g, '_')}_default;
            
