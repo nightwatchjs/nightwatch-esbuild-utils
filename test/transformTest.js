@@ -83,6 +83,7 @@ describe('transform tests', function() {
     assert.strictEqual(matches.length, 4);
     assert.ok(/describe\("Button\.stories\.jsx component", function\(\) {/.test(text));
 
+
     assert.ok(text.includes(`it(
     "exported Primary",
     async function(browser) {
@@ -96,8 +97,8 @@ describe('transform tests', function() {
         modulePath: "${path.join(__dirname, 'data/Button.stories.jsx')}",
         exportName: "Primary"
       }));
-      const result = await Promise.resolve(test(browser));
-      const data = result === null || result === void 0 ? {} : result;
+      const mountResult = await Promise.resolve(test(browser));
+      const data = mountResult || {};
       const component = Primary;
       if (component.test) {
         await Promise.resolve(component.test(browser, data));

@@ -120,9 +120,9 @@ const itFn = function({name, exportName, createTest, modulePath, onlyConditionFn
  * @param {Object} argv
  * @param {Object} nightwatch_settings
  */
-module.exports = async function (modulePath, {name, data, showBrowserConsole = false, exports, createTest, transformCode = (code) => code, onlyConditionFn}, {
+module.exports = async function (modulePath, {name, data = () => {}, showBrowserConsole = false, exports, createTest, transformCode = (code) => code, onlyConditionFn}, {
   argv = {}, nightwatch_settings = {}
-}) {
+} = {}) {
   if (typeof createTest != 'function') {
     throw new Error('createTest function must be defined.');
   }
