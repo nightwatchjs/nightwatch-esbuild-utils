@@ -2,6 +2,61 @@ const path = require('path');
 const getVirtualFilePath = require('./getVirtualFilePath.js');
 const {buildFile, transformFile, findExportNamesIn} = require('./esbuild.js');
 
+const getBrowserConsoleCode = `
+  const {Logger} = require('nightwatch');
+  const {browserName = ''} = browser.capabilities;
+  
+  if (browserName.toLowerCase() === 'chrome') {
+    const cdpConnection = await browser.driver.createCDPConnection('page');
+    
+    cdpConnection._wsConnection.on('message', function(message) {
+      try {
+        const params = JSON.parse(message);
+        if (params.method === 'Runtime.consoleAPICalled') {
+          const consoleEventParams = params['params'];
+          const {type, args} = consoleEventParams;
+
+          if (args.length > 0 && args[0].type === 'string' && args[0].value.startsWith('%c')) {
+            return;
+          }
+
+          const message = args.reduce((prev, item) => {
+            if (item.type === 'string') {
+              prev.push(item.value);
+            } else if (item.type === 'object') {
+              prev.push(Logger.inspectObject({
+                [item.className]: item.description
+              }));
+            }
+            return prev;
+          }, []);
+
+          if (typeof console[type] == 'function') {
+            console[type](Logger.colors.light_cyan('[browser]'), ...message);
+          }
+        }
+
+        if (params.method === 'Runtime.exceptionThrown') {
+          const exceptionEventParams = params['params'];
+          const {exceptionDetails = {}, timestamp} = exceptionEventParams;
+          const {exception} = exceptionDetails;
+
+          if (exception && exception.description) {
+            const stackParts = exception.description.split('\\n');
+            const errorTitle = stackParts.shift();
+            const stackTrace = stackParts.join('\\n');
+            console.error(Logger.colors.light_cyan('[browser]'), Logger.colors.light_red(errorTitle) + '\\n' + Logger.colors.stack_trace(stackTrace));
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    });
+
+    cdpConnection.execute('Runtime.enable', {}, null);
+  }
+`;
+
 const itFnAsync = function({name, exportName, createTest, onlyConditionFn = function() {}, modulePath, additionalTestData, modulePublicUrl}, argv) {
   return `
       
@@ -13,15 +68,14 @@ const itFnAsync = function({name, exportName, createTest, onlyConditionFn = func
           exportName: "${exportName}",
         }));
         
-        const element = await Promise.resolve(test(browser));
-        const data = element === null || element === undefined ? {} : {component: element};
+        const mountResult = await Promise.resolve(test(browser));
+        const data = mountResult || {};
         
         const component = ${
   exportName === 'default'
     ? `${path.basename(modulePath, path.extname(modulePath))}_${exportName}`
     : exportName
 };
-        
         if (component.test) {
           await Promise.resolve(component.test(browser, data));
         }
@@ -66,7 +120,7 @@ const itFn = function({name, exportName, createTest, modulePath, onlyConditionFn
  * @param {Object} argv
  * @param {Object} nightwatch_settings
  */
-module.exports = async function (modulePath, {name, data, exports, createTest, transformCode = (code) => code, onlyConditionFn}, {
+module.exports = async function (modulePath, {name, data, showBrowserConsole = false, exports, createTest, transformCode = (code) => code, onlyConditionFn}, {
   argv = {}, nightwatch_settings = {}
 }) {
   if (typeof createTest != 'function') {
@@ -90,21 +144,27 @@ module.exports = async function (modulePath, {name, data, exports, createTest, t
   const testItems = exportNames.map((exportName) => {
     const additionalTestData = data(exportName);
     const opts = {
-      exportName, name, createTest, additionalTestData, modulePath, onlyConditionFn, modulePublicUrl
+      exportName, name, showBrowserConsole, createTest, additionalTestData, modulePath, onlyConditionFn, modulePublicUrl
     };
 
     return isCreateTestAsync ? itFnAsync(opts, argv): itFn(opts, argv);
   });
 
+  const browserConsoleCode = showBrowserConsole ? getBrowserConsoleCode: '';
   const describeFn = `describe('${path.basename(modulePath)} component', function () {
     let componentDefault;
     this.skipTestcasesOnFail = false;
     try {
      componentDefault = ${path.basename(modulePath, path.extname(modulePath)).replace(/\./g, '_')}_default;
            
-     if (typeof componentDefault.before == 'function') {
-       before(componentDefault.before); 
-     }
+     before(async function(browser) {
+       ${browserConsoleCode}
+       
+       if (typeof componentDefault.before == 'function') {
+         await componentDefault.before(browser); 
+       }     
+     });      
+     
      if (typeof componentDefault.beforeEach == 'function') {
        beforeEach(componentDefault.beforeEach);
      }
