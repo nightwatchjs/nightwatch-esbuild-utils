@@ -153,6 +153,7 @@ module.exports = async function (modulePath, {name, data = () => {}, showBrowser
   const browserConsoleCode = showBrowserConsole ? getBrowserConsoleCode: '';
   const describeFn = `describe('${path.basename(modulePath)} component', function () {
     let componentDefault;
+    this.desiredCapabilities.pageLoadStrategy = this.argv.debug ? 'none' : 'eager';
     this.skipTestcasesOnFail = false;
     try {
      componentDefault = ${path.basename(modulePath, path.extname(modulePath)).replace(/\./g, '_')}_default;
