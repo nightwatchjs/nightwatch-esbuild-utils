@@ -3,12 +3,26 @@ const getVirtualFilePath = require('./getVirtualFilePath.js');
 const {buildFile, transformFile, findExportNamesIn} = require('./esbuild.js');
 
 const getBrowserConsoleCode = `
-  const {Logger} = require('nightwatch');
-  const {browserName = ''} = browser.capabilities;
+  let Logger;
+  try {
+    Logger = require('nightwatch').Logger;
+  } catch (err) {
+    Logger = {
+      inspectObject(obj) {
+        return obj;
+      },
+      colors: {
+        light_cyan: msg => (msg),
+        light_red: msg => (msg),
+        stack_trace: msg => (msg)
+      }
+    };
+  }
   
-  if (browserName.toLowerCase() === 'chrome') {
-    const cdpConnection = await browser.driver.createCDPConnection('page');
-    
+  
+  const {browserName = ''} = browser.capabilities;
+  if (browserName.toLowerCase() === 'chrome' || browserName.toLowerCase() === 'msedge') {
+    cdpConnection = await browser.driver.createCDPConnection('page');
     cdpConnection._wsConnection.on('message', function(message) {
       try {
         const params = JSON.parse(message);
@@ -21,13 +35,16 @@ const getBrowserConsoleCode = `
           }
 
           const message = args.reduce((prev, item) => {
-            if (item.type === 'string') {
+            if (item.type === 'string' || item.type === 'boolean' || item.type === 'number') {
               prev.push(item.value);
-            } else if (item.type === 'object') {
+            } else if (item === undefined) {
+              prev.push(undefined);
+            } else if (item.type === 'object' || item.type === 'function') {
               prev.push(Logger.inspectObject({
                 [item.className]: item.description
               }));
             }
+            
             return prev;
           }, []);
 
@@ -71,13 +88,18 @@ const itFnAsync = function({name, exportName, createTest, onlyConditionFn = func
         const mountResult = await Promise.resolve(test(browser));
         const data = mountResult || {};
         
-        const component = ${
-  exportName === 'default'
-    ? `${path.basename(modulePath, path.extname(modulePath))}_${exportName}`
-    : exportName
-};
+        const component = ${exportName === 'default' ? `${path.basename(modulePath, path.extname(modulePath)).replace(/-+/, '_')}_${exportName}` : exportName};
+        
+        if (data.beforeMountError) {
+          console.error(data.beforeMountError.message);
+        }
+          
         if (component.test) {
           await Promise.resolve(component.test(browser, data));
+        }
+        
+        if (data.afterMountError) {
+          console.error(data.afterMountError.message);
         }
       }
     );`;
@@ -100,16 +122,12 @@ const itFn = function({name, exportName, createTest, modulePath, onlyConditionFn
         
       const result = test(browser);
       const data = result === null || result === undefined ? {} : result;
-      const component = ${
-  exportName === 'default'
-    ? `${path.basename(modulePath, path.extname(modulePath))}_${exportName}`
-    : exportName
-};
-        if (component.test) {
-          return component.test(browser, data);
-        }
+      
+      const component = ${exportName === 'default' ? `${path.basename(modulePath, path.extname(modulePath)).replace(/-+/, '_')}_${exportName}` : exportName};
+      if (component.test) {
+        return component.test(browser, data);
       }
-    );`;
+    });`;
 };
 
 /**
@@ -153,10 +171,11 @@ module.exports = async function (modulePath, {name, data = () => {}, showBrowser
   const browserConsoleCode = showBrowserConsole ? getBrowserConsoleCode: '';
   const describeFn = `describe('${path.basename(modulePath)} component', function () {
     let componentDefault;
-    this.desiredCapabilities.pageLoadStrategy = this.argv.debug ? 'none' : 'eager';
+    let cdpConnection;
+    this.desiredCapabilities.pageLoadStrategy = 'eager';
     this.skipTestcasesOnFail = false;
     try {
-     componentDefault = ${path.basename(modulePath, path.extname(modulePath)).replace(/\./g, '_')}_default;
+     componentDefault = ${path.basename(modulePath, path.extname(modulePath)).replace(/[^a-zA-Z0-9]+/g, '_')}_default;
            
      before(async function(browser) {
        ${browserConsoleCode}
@@ -172,9 +191,15 @@ module.exports = async function (modulePath, {name, data = () => {}, showBrowser
      if (typeof componentDefault.afterEach == 'function') {
        afterEach(componentDefault.afterEach);
      }
-     if (typeof componentDefault.after == 'function') {
-       after(componentDefault.after);
-     }
+     
+     after(async function(browser) {       
+       if (typeof componentDefault.after == 'function') {
+         after(componentDefault.after);
+       }
+     });
+     
+     
+     
     } catch (err) {
       console.error('Error:', err);
     }

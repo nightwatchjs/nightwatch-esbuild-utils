@@ -16,6 +16,7 @@ const ESBUILD_LOADERS = Object.freeze({
   '.json': 'json',
 
   '.txt': 'text',
+  '.mdx': 'text',
   '.data': 'binary',
 
   '.svg': 'dataurl',
