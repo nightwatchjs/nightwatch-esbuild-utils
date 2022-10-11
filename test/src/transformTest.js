@@ -32,34 +32,33 @@ describe('transform tests', function() {
       }
     });
 
-    const itBlocks = /it\(\n.+\n/g;
+    // const itBlocks = /it\(\n.+\n/g;
+    const itBlocks = /it\("exported [a-zA-Z]+", function\(browser\) {\n/g;
     const matches = text.match(itBlocks);
 
+    assert.ok(!!matches, 'There are no matches for the "it" regex');
     assert.strictEqual(matches.length, 4);
     assert.ok(/describe\("Button\.stories\.jsx component", function\(\) {/.test(text));
 
 
-    const textToMatch = `it(
-    "exported Primary",
-    function(browser) {
-      const test = function() {
-        return function(browser2) {
-          browser2.init();
-        };
-      }({
-        data: { "exportName": "Primary", "modulePath": "${path.join(__dirname, '../data/Button.stories.jsx')}" },
-        publicUrl: "/test/data/Button.stories.jsx",
-        modulePath: "${path.join(__dirname, '../data/Button.stories.jsx')}",
-        exportName: "Primary"
-      });
-      const result = test(browser);
-      const data = result === null || result === void 0 ? {} : result;
-      const component = Primary;
-      if (component.test) {
-        return component.test(browser, data);
-      }
+    const textToMatch = `it("exported Primary", function(browser) {
+    const test = function() {
+      return function(browser2) {
+        browser2.init();
+      };
+    }({
+      data: { "exportName": "Primary", "modulePath": "${path.join(__dirname, '../data/Button.stories.jsx')}" },
+      publicUrl: "/test/data/Button.stories.jsx",
+      modulePath: "${path.join(__dirname, '../data/Button.stories.jsx')}",
+      exportName: "Primary"
+    });
+    const result = test(browser);
+    const data = result === null || result === void 0 ? {} : result;
+    const component = Primary;
+    if (component.test) {
+      return component.test(browser, data);
     }
-  );`;
+  });`;
 
     assert.ok(text.includes(textToMatch));
   });
@@ -83,8 +82,7 @@ describe('transform tests', function() {
     assert.strictEqual(matches.length, 4);
     assert.ok(/describe\("Button\.stories\.jsx component", function\(\) {/.test(text));
 
-
-    assert.ok(text.includes(`it(
+    const textToMatch = `it(
     "exported Primary",
     async function(browser) {
       const test = await Promise.resolve(async function() {
@@ -100,11 +98,19 @@ describe('transform tests', function() {
       const mountResult = await Promise.resolve(test(browser));
       const data = mountResult || {};
       const component = Primary;
+      if (data.beforeMountError) {
+        console.error(data.beforeMountError.message);
+      }
       if (component.test) {
         await Promise.resolve(component.test(browser, data));
       }
+      if (data.afterMountError) {
+        console.error(data.afterMountError.message);
+      }
     }
-  );`));
+  );`;
+
+    assert.ok(text.includes(textToMatch));
   });
 
   xit('test basic jsx execute', async function() {
