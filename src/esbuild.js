@@ -97,6 +97,7 @@ async function resolveExternalConfig() {
     if (fs.existsSync(name)) {
       try {
         const {default: values} = await import(pathToFileURL(path.resolve(name)));
+
         return values;
       } catch {
         continue;
