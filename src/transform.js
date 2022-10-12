@@ -88,13 +88,13 @@ const itFnAsync = function({name, exportName, createTest, onlyConditionFn = func
         const mountResult = await Promise.resolve(test(browser));
         const data = mountResult || {};
         
-        const component = ${exportName === 'default' ? `${path.basename(modulePath, path.extname(modulePath)).replace(/-+/, '_')}_${exportName}` : exportName};
+        const component = exports["${exportName}"];
         
         if (data.beforeMountError) {
           console.error(data.beforeMountError.message);
         }
           
-        if (component.test) {
+        if (component && component.test) {
           await Promise.resolve(component.test(browser, data));
         }
         
@@ -123,8 +123,8 @@ const itFn = function({name, exportName, createTest, modulePath, onlyConditionFn
       const result = test(browser);
       const data = result === null || result === undefined ? {} : result;
       
-      const component = ${exportName === 'default' ? `${path.basename(modulePath, path.extname(modulePath)).replace(/-+/, '_')}_${exportName}` : exportName};
-      if (component.test) {
+      const component = exports["${exportName}"];
+      if (component && component.test) {
         return component.test(browser, data);
       }
     });`;
@@ -175,7 +175,7 @@ module.exports = async function (modulePath, {name, data = () => {}, showBrowser
     this.desiredCapabilities.pageLoadStrategy = 'eager';
     this.skipTestcasesOnFail = false;
     try {
-     componentDefault = ${path.basename(modulePath, path.extname(modulePath)).replace(/[^a-zA-Z0-9]+/g, '_')}_default;
+     componentDefault = exports.default;
            
      before(async function(browser) {
        ${browserConsoleCode}

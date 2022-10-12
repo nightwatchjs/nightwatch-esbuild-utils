@@ -1,9 +1,13 @@
 const fs = require('fs');
+const path = require('path');
 const {build, transform} = require('esbuild');
 const merge = require('lodash.merge');
+const mergeWith = require('lodash.mergewith');
+const {pathToFileURL} = require('url');
+const babel = require('./babel.js');
 
 const ESBUILD_LOADERS = Object.freeze({
-  '.js': 'js',
+  '.js': 'jsx',
   '.cjs': 'js',
   '.jsx': 'jsx',
 
@@ -86,8 +90,43 @@ const findExportNamesIn = async function (modulePath) {
   return Array.from(names);
 };
 
-const buildFile = function(modulePath, additionalConfig = {}) {
-  const config = merge({}, ESBUILD_CONFIG, additionalConfig);
+const ESBUILD_CONFIGS = ['esbuild.config.mjs', 'esbuild.config.js'];
+
+async function resolveExternalConfig() {
+  for (const name of ESBUILD_CONFIGS) {
+    if (fs.existsSync(name)) {
+      try {
+        const {default: values} = await import(pathToFileURL(path.resolve(name)));
+        return values;
+      } catch {
+        continue;
+      }
+    }
+  }
+
+  return {};
+}
+
+const buildFile = async function(modulePath, additionalConfig = {}) {
+  const fileConfig = await resolveExternalConfig();
+
+  if (additionalConfig.babel) {
+    additionalConfig.plugins = additionalConfig.plugins || [];
+
+    additionalConfig.plugins.push(
+      babel(typeof additionalConfig.babel === 'boolean' ? {} : additionalConfig.babel)
+    );
+
+    delete additionalConfig.babel;
+  }
+
+  mergeWith(fileConfig, additionalConfig, function customizer(objValue, srcValue) {
+    if (Array.isArray(objValue)) {
+      return objValue.concat(srcValue);
+    }
+  });
+
+  const config = merge({}, ESBUILD_CONFIG, fileConfig);
 
   return build({...config, entryPoints: [modulePath]});
 };
