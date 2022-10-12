@@ -126,7 +126,7 @@ const buildFile = async function(modulePath, additionalConfig = {}) {
     }
   });
 
-  const config = merge({}, ESBUILD_CONFIG, additionalConfig);
+  const config = merge({}, ESBUILD_CONFIG, fileConfig);
 
   return build({...config, entryPoints: [modulePath]});
 };
