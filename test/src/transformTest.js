@@ -54,8 +54,8 @@ describe('transform tests', function() {
     });
     const result = test(browser);
     const data = result === null || result === void 0 ? {} : result;
-    const component = Primary;
-    if (component.test) {
+    const component = exports["Primary"];
+    if (component && component.test) {
       return component.test(browser, data);
     }
   });`;
@@ -97,11 +97,11 @@ describe('transform tests', function() {
       }));
       const mountResult = await Promise.resolve(test(browser));
       const data = mountResult || {};
-      const component = Primary;
+      const component = exports["Primary"];
       if (data.beforeMountError) {
         console.error(data.beforeMountError.message);
       }
-      if (component.test) {
+      if (component && component.test) {
         await Promise.resolve(component.test(browser, data));
       }
       if (data.afterMountError) {

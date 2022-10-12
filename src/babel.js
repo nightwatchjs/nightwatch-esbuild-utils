@@ -5,10 +5,10 @@ const path = require('path');
 module.exports = function pluginBabel(options = {}) {
   return {
     name: 'babel',
-    setup(build, { transform } = {}) {
-      const { filter = /.*/, namespace = '', config = {} } = options;
+    setup(build, {transform} = {}) {
+      const {filter = /.*/, namespace = '', config = {}} = options;
 
-      const transformContents = ({ args, contents }) => {
+      const transformContents = ({args, contents}) => {
         const babelOptions = babel.loadOptions({
           ...config,
           filename: args.path,
@@ -17,7 +17,9 @@ module.exports = function pluginBabel(options = {}) {
             supportsStaticESM: true
           }
         });
-        if (!babelOptions) return { contents };
+        if (!babelOptions) {
+          return {contents};
+        }
 
         if (babelOptions.sourceMaps) {
           const filename = path.relative(process.cwd(), args.path);
@@ -27,18 +29,20 @@ module.exports = function pluginBabel(options = {}) {
 
         return new Promise((resolve, reject) => {
           babel.transform(contents, babelOptions, (error, result) => {
-            error ? reject(error) : resolve({ contents: result.code });
+            error ? reject(error) : resolve({contents: result.code});
           });
         });
       };
 
-      if (transform) return transformContents(transform);
+      if (transform) {
+        return transformContents(transform);
+      }
 
-      build.onLoad({ filter, namespace }, async args => {
+      build.onLoad({filter, namespace}, async args => {
         const contents = await fs.promises.readFile(args.path, 'utf8');
 
-        return transformContents({ args, contents });
+        return transformContents({args, contents});
       });
     }
-  }
+  };
 };
