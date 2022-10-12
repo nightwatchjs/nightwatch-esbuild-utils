@@ -94,7 +94,7 @@ const itFnAsync = function({name, exportName, createTest, onlyConditionFn = func
           console.error(data.beforeMountError.message);
         }
           
-        if (component.test) {
+        if (component && component.test) {
           await Promise.resolve(component.test(browser, data));
         }
         
@@ -124,7 +124,7 @@ const itFn = function({name, exportName, createTest, modulePath, onlyConditionFn
       const data = result === null || result === undefined ? {} : result;
       
       const component = exports["${exportName}"];
-      if (component.test) {
+      if (component && component.test) {
         return component.test(browser, data);
       }
     });`;
