@@ -54,8 +54,8 @@ describe('transform tests', function() {
     });
     const result = test(browser);
     const data = result === null || result === void 0 ? {} : result;
-    const component = Primary;
-    if (component.test) {
+    const component = module.exports["Primary"];
+    if (component && component.test) {
       return component.test(browser, data);
     }
   });`;
@@ -97,11 +97,11 @@ describe('transform tests', function() {
       }));
       const mountResult = await Promise.resolve(test(browser));
       const data = mountResult || {};
-      const component = Primary;
+      const component = module.exports["Primary"];
       if (data.beforeMountError) {
         console.error(data.beforeMountError.message);
       }
-      if (component.test) {
+      if (component && component.test) {
         await Promise.resolve(component.test(browser, data));
       }
       if (data.afterMountError) {
@@ -110,7 +110,39 @@ describe('transform tests', function() {
     }
   );`;
 
+    const describeBlock = `describe("Button.stories.jsx component", function() {
+  let componentDefault;
+  let cdpConnection;
+  this.desiredCapabilities.pageLoadStrategy = "eager";
+  this.skipTestcasesOnFail = false;
+  let testNamespace;
+  try {
+    componentDefault = module.exports.default;
+    if (componentDefault && componentDefault.test) {
+      testNamespace = componentDefault.test;
+    }
+    before(async function(browser) {
+      if (testNamespace && typeof testNamespace.before == "function") {
+        await testNamespace.before(browser);
+      }
+    });
+    if (testNamespace && typeof testNamespace.beforeEach == "function") {
+      beforeEach(testNamespace.beforeEach);
+    }
+    if (testNamespace && typeof testNamespace.afterEach == "function") {
+      afterEach(testNamespace.afterEach);
+    }
+    after(async function(browser) {
+      if (testNamespace && typeof testNamespace.after == "function") {
+        after(testNamespace.after);
+      }
+    });
+  } catch (err) {
+    console.error("Error:", err);
+  }`;
+
     assert.ok(text.includes(textToMatch));
+    assert.ok(text.includes(describeBlock));
   });
 
   xit('test basic jsx execute', async function() {

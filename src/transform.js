@@ -88,7 +88,7 @@ const itFnAsync = function({name, exportName, createTest, onlyConditionFn = func
         const mountResult = await Promise.resolve(test(browser));
         const data = mountResult || {};
         
-        const component = exports["${exportName}"];
+        const component = module.exports["${exportName}"];
         
         if (data.beforeMountError) {
           console.error(data.beforeMountError.message);
@@ -123,7 +123,7 @@ const itFn = function({name, exportName, createTest, modulePath, onlyConditionFn
       const result = test(browser);
       const data = result === null || result === undefined ? {} : result;
       
-      const component = exports["${exportName}"];
+      const component = module.exports["${exportName}"];
       if (component && component.test) {
         return component.test(browser, data);
       }
@@ -174,32 +174,36 @@ module.exports = async function (modulePath, {name, data = () => {}, showBrowser
     let cdpConnection;
     this.desiredCapabilities.pageLoadStrategy = 'eager';
     this.skipTestcasesOnFail = false;
+    let testNamespace;
+    
     try {
-     componentDefault = exports.default;
+     componentDefault = module.exports.default;
+     if (componentDefault && componentDefault.test) {
+       testNamespace = componentDefault.test;
+     }
            
      before(async function(browser) {
        ${browserConsoleCode}
        
-       if (typeof componentDefault.before == 'function') {
-         await componentDefault.before(browser); 
+       if (testNamespace && typeof testNamespace.before == 'function') {
+         await testNamespace.before(browser); 
        }     
      });      
      
-     if (typeof componentDefault.beforeEach == 'function') {
-       beforeEach(componentDefault.beforeEach);
+     if (testNamespace && typeof testNamespace.beforeEach == 'function') {
+       beforeEach(testNamespace.beforeEach);
      }
-     if (typeof componentDefault.afterEach == 'function') {
-       afterEach(componentDefault.afterEach);
+     
+     if (testNamespace && typeof testNamespace.afterEach == 'function') {
+       afterEach(testNamespace.afterEach);
      }
      
      after(async function(browser) {       
-       if (typeof componentDefault.after == 'function') {
-         after(componentDefault.after);
+       if (testNamespace && typeof testNamespace.after == 'function') {
+         after(testNamespace.after);
        }
      });
-     
-     
-     
+    
     } catch (err) {
       console.error('Error:', err);
     }
