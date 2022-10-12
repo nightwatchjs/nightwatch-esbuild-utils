@@ -55,6 +55,7 @@ describe('transform tests', function() {
     const result = test(browser);
     const data = result === null || result === void 0 ? {} : result;
     const component = module.exports["Primary"];
+
     if (component && component.test) {
       return component.test(browser, data);
     }
