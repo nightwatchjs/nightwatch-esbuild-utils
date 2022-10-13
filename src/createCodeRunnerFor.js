@@ -13,15 +13,17 @@ const getDefaultExport = function (exported) {
 
 function createRequireShim(relativeModulePath) {
   function resolveShim(requirePath) {
-    const relativePoint = requirePath.startsWith('.')
-      ? path.dirname(relativeModulePath)
-      : path.join(process.cwd(), 'node_modules');
+    if (path.isAbsolute(requirePath) || builtinModules.includes(requirePath)) {
+      return requirePath;
+    }
 
-    return path.isAbsolute(requirePath)
-      ? requirePath
-      : builtinModules.includes(requirePath)
-        ? requirePath
-        : path.join(relativePoint, requirePath);
+    let relativePoint = path.join(process.cwd(), 'node_modules');
+
+    if (requirePath.startsWith('.')) {
+      relativePoint = path.dirname(relativeModulePath);
+    }
+
+    return path.join(relativePoint, requirePath);
   }
 
   function requireShim(requirePath) {
