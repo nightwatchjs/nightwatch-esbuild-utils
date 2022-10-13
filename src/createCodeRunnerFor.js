@@ -1,5 +1,7 @@
 const path = require('path');
+const process = require('process');
 const {Script} = require('vm');
+const {builtinModules} = require('node:module');
 
 const getDefaultExport = function (exported) {
   if (exported && Object.prototype.hasOwnProperty.call(exported, 'default')) {
@@ -8,6 +10,28 @@ const getDefaultExport = function (exported) {
 
   return exported;
 };
+
+function createRequireShim(relativeModulePath) {
+  function resolveShim(requirePath) {
+    const relativePoint = requirePath.startsWith('.')
+      ? path.dirname(relativeModulePath)
+      : path.join(process.cwd(), 'node_modules');
+
+    return path.isAbsolute(requirePath)
+      ? requirePath
+      : builtinModules.includes(requirePath)
+        ? requirePath
+        : path.join(relativePoint, requirePath);
+  }
+
+  function requireShim(requirePath) {
+    return require(resolveShim(requirePath));
+  };
+
+  requireShim.resolve = resolveShim;
+
+  return requireShim;
+}
 
 /**
  * Creates a VM instance for running in-memory code in the current global
@@ -39,12 +63,12 @@ module.exports = function (realModulePath, virtualModulePath = realModulePath) {
     })
     `;
 
-    new Script(content, {filename: virtualModulePath}).runInThisContext()(contextModule, function (requirePath) {
-      const relativePoint = requirePath.startsWith('.') ? path.dirname(realModulePath) : path.join(process.cwd(), 'node_modules');
-      const absolutePathToModule = path.isAbsolute(requirePath) ? requirePath : path.join(relativePoint, requirePath);
-
-      return require(absolutePathToModule);
-    }, realModulePath, path.dirname(realModulePath));
+    new Script(content, {filename: virtualModulePath}).runInThisContext()(
+      contextModule,
+      createRequireShim(realModulePath),
+      realModulePath,
+      path.dirname(realModulePath)
+    );
 
     return getDefaultExport(contextModule.exports);
   };
