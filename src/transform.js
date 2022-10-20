@@ -78,6 +78,23 @@ const itFnAsync = function({name, exportName, createTest, onlyConditionFn = func
   return `
       
       it${addOnly(onlyConditionFn, {name, exportName, modulePath, modulePublicUrl}, argv)}('${typeof name === 'string' ? name : name(exportName)}', async function (browser) {
+        const componentDefault = module.exports["default"];
+        if (componentDefault && componentDefault.preRender) {
+          try {
+            await componentDefault.preRender(browser, {
+              id: '${additionalTestData.id}',
+              name: '${exportName}',
+              title: '${additionalTestData.name}'
+            });
+          } catch (err) {
+            const error = new Error('► preRender test hook threw an error for "${additionalTestData.name}" story:');
+            error.detailedErr = err.stack;
+            error.stack = err.stack;
+            
+            throw error;
+          }
+        }
+        const component = module.exports["${exportName}"];
         const test = await Promise.resolve((${createTest.toString()})({
           data: ${JSON.stringify({exportName, modulePath, ...additionalTestData})},
           publicUrl: "${modulePublicUrl}",
@@ -88,14 +105,16 @@ const itFnAsync = function({name, exportName, createTest, onlyConditionFn = func
         const mountResult = await Promise.resolve(test(browser));
         const data = mountResult || {};
         
-        const component = module.exports["${exportName}"];
-        
         if (data.beforeMountError) {
           console.error(data.beforeMountError.message);
         }
           
         if (component && component.test) {
-          await Promise.resolve(component.test(browser, data));
+          if (data.component instanceof Error) {
+            throw data.component;
+          } else {
+            await Promise.resolve(component.test(browser, data));
+          }
         }
         
         if (data.afterMountError) {
@@ -109,27 +128,6 @@ const addOnly = function(conditionFn, options, argv) {
   return conditionFn(options, argv) ? '.only': '';
 };
 
-const itFn = function({name, exportName, createTest, modulePath, onlyConditionFn = function() {}, additionalTestData, modulePublicUrl}, argv) {
-  return `
-    
-    it${addOnly(onlyConditionFn, {name, exportName, modulePath, modulePublicUrl}, argv)}('${typeof name === 'string' ? name : name(exportName)}', function (browser) {
-      const test = ((${createTest.toString()})({
-          data: ${JSON.stringify({exportName, modulePath, ...additionalTestData})},
-          publicUrl: "${modulePublicUrl}",
-          modulePath: "${modulePath}",
-          exportName: "${exportName}",
-        }));
-        
-      const result = test(browser);
-      const data = result === null || result === undefined ? {} : result;
-      
-      const component = module.exports["${exportName}"];
-      if (component && component.test) {
-        return component.test(browser, data);
-      }
-    });`;
-};
-
 /**
  * Creates a virtual test file
  *
@@ -139,13 +137,12 @@ const itFn = function({name, exportName, createTest, modulePath, onlyConditionFn
  * @param {Object} nightwatch_settings
  */
 module.exports = async function (modulePath, {name, data = () => {}, showBrowserConsole = false, exports, createTest, transformCode = (code) => code, onlyConditionFn}, {
-  argv = {}, nightwatch_settings = {}
+  argv = {}, nightwatch_settings = {}, metadata = {}
 } = {}) {
   if (typeof createTest != 'function') {
     throw new Error('createTest function must be defined.');
   }
 
-  const isCreateTestAsync = createTest.constructor.name === 'AsyncFunction';
   const virtualFilePath = getVirtualFilePath(modulePath);
   const modulePublicUrl = modulePath.replace(process.cwd(), '').split(path.sep).join('/');
   const allModuleExports = await findExportNamesIn(modulePath);
@@ -165,7 +162,7 @@ module.exports = async function (modulePath, {name, data = () => {}, showBrowser
       exportName, name, showBrowserConsole, createTest, additionalTestData, modulePath, onlyConditionFn, modulePublicUrl
     };
 
-    return isCreateTestAsync ? itFnAsync(opts, argv): itFn(opts, argv);
+    return itFnAsync(opts, argv);
   });
 
   const browserConsoleCode = showBrowserConsole ? getBrowserConsoleCode: '';
@@ -178,17 +175,25 @@ module.exports = async function (modulePath, {name, data = () => {}, showBrowser
     
     try {
      componentDefault = module.exports.default;
-     if (componentDefault && componentDefault.test) {
-       testNamespace = componentDefault.test;
+     if (componentDefault && componentDefault.parameters) {
+       testNamespace = componentDefault.parameters;
      }
            
-     before(async function(browser) {
-       ${browserConsoleCode}
+  before(async function(browser) {
+    ${browserConsoleCode}
        
-       if (testNamespace && typeof testNamespace.before == 'function') {
-         await testNamespace.before(browser); 
-       }     
-     });      
+    if (componentDefault && componentDefault.setup) {
+      try {
+        await componentDefault.setup(browser);
+      } catch (err) {
+        const error = new Error('► setup test hook threw an error:');
+        error.detailedErr = err.stack;
+        error.stack = err.stack;
+      
+        throw error;
+      }
+    }
+  });      
      
      if (testNamespace && typeof testNamespace.beforeEach == 'function') {
        beforeEach(testNamespace.beforeEach);
@@ -199,11 +204,18 @@ module.exports = async function (modulePath, {name, data = () => {}, showBrowser
      }
      
      after(async function(browser) {       
-       if (testNamespace && typeof testNamespace.after == 'function') {
-         after(testNamespace.after);
-       }
+       if (componentDefault && componentDefault.teardown) {
+        try {
+          await componentDefault.teardown(browser);
+        } catch (err) {
+          const error = new Error('► teardown test hook threw an error:');
+          error.detailedErr = err.stack;
+          error.stack = err.stack;
+        
+          throw error;
+        }
+      }
      });
-    
     } catch (err) {
       console.error('Error:', err);
     }

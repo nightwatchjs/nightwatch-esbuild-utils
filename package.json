@@ -10,7 +10,12 @@
     "eslint": "eslint src",
     "test": "mocha test/src"
   },
-  "author": "",
+  "author": "Andrei Rusu",
+  "files": [
+    "src",
+    "LICENSE.md",
+    "index.js"
+  ],
   "license": "MIT",
   "dependencies": {
     "@babel/core": "^7.19.3",
