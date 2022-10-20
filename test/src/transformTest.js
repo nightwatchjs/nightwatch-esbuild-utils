@@ -150,10 +150,9 @@ describe('transform tests', function() {
     console.error("Error:", err);
   }
   `;
-
-    const processed = text.replaceAll('\\u25BA', '').replaceAll(' ', '');
-    assert.ok(processed.includes(textToMatch.replaceAll(' ', '')));
-    assert.ok(processed.includes(describeBlock.replaceAll(' ', '')));
+    const processed = text.replace(/\\u25BA/g, '').replaceAll(/\s+/g, '');
+    assert.ok(processed.includes(textToMatch.replaceAll(/\s+/g, '')));
+    assert.ok(processed.includes(describeBlock.replaceAll(/\s+/g, '')));
   });
 
   xit('test basic jsx execute', async function() {
