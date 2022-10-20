@@ -19,50 +19,6 @@ describe('transform tests', function() {
     assert.strictEqual(err.message, 'createTest function must be defined.');
   });
 
-  it('test basic jsx transform', async function() {
-    const text = await transform(path.join(__dirname, '../data/Button.stories.jsx'), {
-      name(exportName) {
-        return `exported ${exportName}`;
-      },
-
-      createTest: function () {
-        return function(browser) {
-          browser.init();
-        };
-      }
-    });
-
-    // const itBlocks = /it\(\n.+\n/g;
-    const itBlocks = /it\("exported [a-zA-Z]+", function\(browser\) {\n/g;
-    const matches = text.match(itBlocks);
-
-    assert.ok(!!matches, 'There are no matches for the "it" regex');
-    assert.strictEqual(matches.length, 4);
-    assert.ok(/describe\("Button\.stories\.jsx component", function\(\) {/.test(text));
-
-
-    const textToMatch = `it("exported Primary", function(browser) {
-    const test = function() {
-      return function(browser2) {
-        browser2.init();
-      };
-    }({
-      data: { "exportName": "Primary", "modulePath": "${path.join(__dirname, '../data/Button.stories.jsx')}" },
-      publicUrl: "/test/data/Button.stories.jsx",
-      modulePath: "${path.join(__dirname, '../data/Button.stories.jsx')}",
-      exportName: "Primary"
-    });
-    const result = test(browser);
-    const data = result === null || result === void 0 ? {} : result;
-    const component = module.exports["Primary"];
-    if (component && component.test) {
-      return component.test(browser, data);
-    }
-  });`;
-
-    assert.ok(text.includes(textToMatch));
-  });
-
   it('test basic jsx transform with async createTest', async function() {
     const text = await transform(path.join(__dirname, '../data/Button.stories.jsx'), {
       name(exportName) {
@@ -73,8 +29,14 @@ describe('transform tests', function() {
         return function(browser) {
           browser.init();
         };
+      },
+      data() {
+        return {
+          id: 'test-id',
+          name: 'test-name'
+        };
       }
-    });
+    }, {metadata: {id: 'test-id'}});
 
     const itBlocks = /it\(\n.+\n/g;
     const matches = text.match(itBlocks);
@@ -85,29 +47,62 @@ describe('transform tests', function() {
     const textToMatch = `it(
     "exported Primary",
     async function(browser) {
+      const componentDefault2 = module.exports["default"];
+      if (componentDefault2 && componentDefault2.preRender) {
+        try {
+          await componentDefault2.preRender(browser, {
+            id: "test-id",
+            name: "Primary",
+            title: "test-name"
+          });
+        } catch (err) {
+          const error = new Error(' preRender test hook threw an error for "test-name" story:');
+          error.detailedErr = err.stack;
+          error.stack = err.stack;
+          throw error;
+        }
+      }
+      const component = module.exports["Primary"];
       const test = await Promise.resolve(async function() {
         return function(browser2) {
           browser2.init();
         };
       }({
-        data: { "exportName": "Primary", "modulePath": "${path.join(__dirname, '../data/Button.stories.jsx')}" },
+        data: { "exportName": "Primary", "modulePath": "${path.join(__dirname, '../data/Button.stories.jsx')}", "id": "test-id", "name": "test-name" },
         publicUrl: "/test/data/Button.stories.jsx",
         modulePath: "${path.join(__dirname, '../data/Button.stories.jsx')}",
         exportName: "Primary"
       }));
       const mountResult = await Promise.resolve(test(browser));
       const data = mountResult || {};
-      const component = module.exports["Primary"];
       if (data.beforeMountError) {
         console.error(data.beforeMountError.message);
       }
       if (component && component.test) {
-        await Promise.resolve(component.test(browser, data));
+        if (data.component instanceof Error) {
+          throw data.component;
+        } else {
+          await Promise.resolve(component.test(browser, data));
+        }
       }
       if (data.afterMountError) {
         console.error(data.afterMountError.message);
       }
-    }
+      if (componentDefault2 && componentDefault2.postRender) {
+        try {
+          await componentDefault2.postRender(browser, {
+            id: "test-id",
+            name: "Primary",
+            title: "test-name"
+          });
+        } catch (err) {
+          const error = new Error(' postRender test hook threw an error for "test-name" story:');
+          error.detailedErr = err.stack;
+          error.stack = err.stack;
+          throw error;
+        }
+      }
+    }        
   );`;
 
     const describeBlock = `describe("Button.stories.jsx component", function() {
@@ -118,12 +113,19 @@ describe('transform tests', function() {
   let testNamespace;
   try {
     componentDefault = module.exports.default;
-    if (componentDefault && componentDefault.test) {
-      testNamespace = componentDefault.test;
+    if (componentDefault && componentDefault.parameters) {
+      testNamespace = componentDefault.parameters;
     }
     before(async function(browser) {
-      if (testNamespace && typeof testNamespace.before == "function") {
-        await testNamespace.before(browser);
+      if (componentDefault && componentDefault.setup) {
+        try {
+          await componentDefault.setup(browser);
+        } catch (err) {
+          const error = new Error(" setup test hook threw an error:");
+          error.detailedErr = err.stack;
+          error.stack = err.stack;
+          throw error;
+        }
       }
     });
     if (testNamespace && typeof testNamespace.beforeEach == "function") {
@@ -133,16 +135,25 @@ describe('transform tests', function() {
       afterEach(testNamespace.afterEach);
     }
     after(async function(browser) {
-      if (testNamespace && typeof testNamespace.after == "function") {
-        after(testNamespace.after);
+      if (componentDefault && componentDefault.teardown) {
+        try {
+          await componentDefault.teardown(browser);
+        } catch (err) {
+          const error = new Error(" teardown test hook threw an error:");
+          error.detailedErr = err.stack;
+          error.stack = err.stack;
+          throw error;
+        }
       }
     });
   } catch (err) {
     console.error("Error:", err);
-  }`;
+  }
+  `;
 
-    assert.ok(text.includes(textToMatch));
-    assert.ok(text.includes(describeBlock));
+    const processed = text.replaceAll('\\u25BA', '').replaceAll(' ', '');
+    assert.ok(processed.includes(textToMatch.replaceAll(' ', '')));
+    assert.ok(processed.includes(describeBlock.replaceAll(' ', '')));
   });
 
   xit('test basic jsx execute', async function() {

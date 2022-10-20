@@ -120,6 +120,22 @@ const itFnAsync = function({name, exportName, createTest, onlyConditionFn = func
         if (data.afterMountError) {
           console.error(data.afterMountError.message);
         }
+        
+        if (componentDefault && componentDefault.postRender) {
+          try {
+            await componentDefault.postRender(browser, {
+              id: '${additionalTestData.id}',
+              name: '${exportName}',
+              title: '${additionalTestData.name}'
+            });
+          } catch (err) {
+            const error = new Error('► postRender test hook threw an error for "${additionalTestData.name}" story:');
+            error.detailedErr = err.stack;
+            error.stack = err.stack;
+            
+            throw error;
+          }
+        }
       }
     );`;
 };
