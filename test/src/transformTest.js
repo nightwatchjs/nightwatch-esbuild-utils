@@ -42,7 +42,7 @@ describe('transform tests', function() {
     const matches = text.match(itBlocks);
 
     assert.strictEqual(matches.length, 4);
-    assert.ok(/describe\("Button\.stories\.jsx component", function\(\) {/.test(text));
+    assert.ok(/module\.exports\.default && module\.exports\.default\.title \? module\.exports\.default\.title : "Button\.stories\.jsx component", function\(\) {/.test(text));
 
     const textToMatch = `it(
     "exported Primary",
@@ -75,8 +75,8 @@ describe('transform tests', function() {
       }));
       const mountResult = await Promise.resolve(test(browser));
       const data = mountResult || {};
-      if (data.beforeMountError) {
-        console.error(data.beforeMountError.message);
+      if (data.preRenderError) {
+        console.error(data.preRenderError.message);
       }
       if (component && component.test) {
         if (data.component instanceof Error) {
@@ -85,8 +85,8 @@ describe('transform tests', function() {
           await Promise.resolve(component.test(browser, data));
         }
       }
-      if (data.afterMountError) {
-        console.error(data.afterMountError.message);
+      if (data.postRenderError) {
+        console.error(data.postRenderError.message);
       }
       if (componentDefault2 && componentDefault2.postRender) {
         try {
@@ -105,7 +105,7 @@ describe('transform tests', function() {
     }        
   );`;
 
-    const describeBlock = `describe("Button.stories.jsx component", function() {
+    const describeBlock = `describe(module.exports.default && module.exports.default.title ? module.exports.default.title : "Button.stories.jsx component", function() {
   let componentDefault;
   let cdpConnection;
   this.desiredCapabilities.pageLoadStrategy = "eager";
