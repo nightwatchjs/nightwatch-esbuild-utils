@@ -105,8 +105,8 @@ const itFnAsync = function({name, exportName, createTest, onlyConditionFn = func
         const mountResult = await Promise.resolve(test(browser));
         const data = mountResult || {};
         
-        if (data.beforeMountError) {
-          console.error(data.beforeMountError.message);
+        if (data.preRenderError) {
+          console.error(data.preRenderError.message);
         }
           
         if (component && component.test) {
@@ -117,8 +117,8 @@ const itFnAsync = function({name, exportName, createTest, onlyConditionFn = func
           }
         }
         
-        if (data.afterMountError) {
-          console.error(data.afterMountError.message);
+        if (data.postRenderError) {
+          console.error(data.postRenderError.message);
         }
         
         if (componentDefault && componentDefault.postRender) {
@@ -182,7 +182,9 @@ module.exports = async function (modulePath, {name, data = () => {}, showBrowser
   });
 
   const browserConsoleCode = showBrowserConsole ? getBrowserConsoleCode: '';
-  const describeFn = `describe('${path.basename(modulePath)} component', function () {
+  const describeFn = `describe((module.exports.default && module.exports.default.title) 
+  ? module.exports.default.title 
+  : '${path.basename(modulePath)} component', function () {
     let componentDefault;
     let cdpConnection;
     this.desiredCapabilities.pageLoadStrategy = 'eager';
