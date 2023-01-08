@@ -22,55 +22,60 @@ const getBrowserConsoleCode = `
   
   const {browserName = ''} = browser.capabilities;
   if (browserName.toLowerCase() === 'chrome' || browserName.toLowerCase() === 'msedge') {
-    cdpConnection = await browser.driver.createCDPConnection('page');
-    cdpConnection._wsConnection.on('message', function(message) {
-      try {
-        const params = JSON.parse(message);
-        if (params.method === 'Runtime.consoleAPICalled') {
-          const consoleEventParams = params['params'];
-          const {type, args} = consoleEventParams;
-
-          if (args.length > 0 && args[0].type === 'string' && args[0].value.startsWith('%c')) {
-            return;
-          }
-
-          const message = args.reduce((prev, item) => {
-            if (item.type === 'string' || item.type === 'boolean' || item.type === 'number') {
-              prev.push(item.value);
-            } else if (item === undefined) {
-              prev.push(undefined);
-            } else if (item.type === 'object' || item.type === 'function') {
-              prev.push(Logger.inspectObject({
-                [item.className]: item.description
-              }));
+    try {
+      cdpConnection = await browser.driver.createCDPConnection('page');
+      cdpConnection._wsConnection.on('message', function(message) {
+        try {
+          const params = JSON.parse(message);
+          if (params.method === 'Runtime.consoleAPICalled') {
+            const consoleEventParams = params['params'];
+            const {type, args} = consoleEventParams;
+  
+            if (args.length > 0 && args[0].type === 'string' && args[0].value.startsWith('%c')) {
+              return;
             }
-            
-            return prev;
-          }, []);
-
-          if (typeof console[type] == 'function') {
-            console[type](Logger.colors.light_cyan('[browser]'), ...message);
+  
+            const message = args.reduce((prev, item) => {
+              if (item.type === 'string' || item.type === 'boolean' || item.type === 'number') {
+                prev.push(item.value);
+              } else if (item === undefined) {
+                prev.push(undefined);
+              } else if (item.type === 'object' || item.type === 'function') {
+                prev.push(Logger.inspectObject({
+                  [item.className]: item.description
+                }));
+              }
+              
+              return prev;
+            }, []);
+  
+            if (typeof console[type] == 'function') {
+              console[type](Logger.colors.light_cyan('[browser]'), ...message);
+            }
           }
-        }
-
-        if (params.method === 'Runtime.exceptionThrown') {
-          const exceptionEventParams = params['params'];
-          const {exceptionDetails = {}, timestamp} = exceptionEventParams;
-          const {exception} = exceptionDetails;
-
-          if (exception && exception.description) {
-            const stackParts = exception.description.split('\\n');
-            const errorTitle = stackParts.shift();
-            const stackTrace = stackParts.join('\\n');
-            console.error(Logger.colors.light_cyan('[browser]'), Logger.colors.light_red(errorTitle) + '\\n' + Logger.colors.stack_trace(stackTrace));
+  
+          if (params.method === 'Runtime.exceptionThrown') {
+            const exceptionEventParams = params['params'];
+            const {exceptionDetails = {}, timestamp} = exceptionEventParams;
+            const {exception} = exceptionDetails;
+  
+            if (exception && exception.description) {
+              const stackParts = exception.description.split('\\n');
+              const errorTitle = stackParts.shift();
+              const stackTrace = stackParts.join('\\n');
+              console.error(Logger.colors.light_cyan('[browser]'), Logger.colors.light_red(errorTitle) + '\\n' + Logger.colors.stack_trace(stackTrace));
+            }
           }
+        } catch (err) {
+          console.error(err);
         }
-      } catch (err) {
-        console.error(err);
-      }
-    });
-
-    cdpConnection.execute('Runtime.enable', {}, null);
+      });
+  
+      cdpConnection.execute('Runtime.enable', {}, null);
+    } catch (err) {
+      
+    }
+    
   }
 `;
 
@@ -79,9 +84,13 @@ const itFnAsync = function({name, exportName, createTest, onlyConditionFn = func
       
       it${addOnly(onlyConditionFn, {name, exportName, modulePath, modulePublicUrl}, argv)}('${typeof name === 'string' ? name : name(exportName)}', async function (browser) {
         const componentDefault = module.exports["default"];
-        if (componentDefault && componentDefault.preRender) {
+        const component = module.exports["${exportName}"];
+        let preRender = component && component.preRender || componentDefault && componentDefault.preRender; 
+        let postRender = component && component.postRender || componentDefault && componentDefault.postRender; 
+        
+        if (preRender) {
           try {
-            await componentDefault.preRender(browser, {
+            await preRender(browser, {
               id: '${additionalTestData.id}',
               name: '${exportName}',
               title: '${additionalTestData.name}'
@@ -94,7 +103,7 @@ const itFnAsync = function({name, exportName, createTest, onlyConditionFn = func
             throw error;
           }
         }
-        const component = module.exports["${exportName}"];
+        
         const test = await Promise.resolve((${createTest.toString()})({
           data: ${JSON.stringify({exportName, modulePath, ...additionalTestData})},
           publicUrl: "${modulePublicUrl}",
@@ -121,9 +130,9 @@ const itFnAsync = function({name, exportName, createTest, onlyConditionFn = func
           console.error(data.postRenderError.message);
         }
         
-        if (componentDefault && componentDefault.postRender) {
+        if (postRender) {
           try {
-            await componentDefault.postRender(browser, {
+            await postRender(browser, {
               id: '${additionalTestData.id}',
               name: '${exportName}',
               title: '${additionalTestData.name}'

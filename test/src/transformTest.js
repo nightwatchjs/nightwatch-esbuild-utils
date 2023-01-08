@@ -44,13 +44,14 @@ describe('transform tests', function() {
     assert.strictEqual(matches.length, 4);
     assert.ok(/module\.exports\.default && module\.exports\.default\.title \? module\.exports\.default\.title : "Button\.stories\.jsx component", function\(\) {/.test(text));
 
-    const textToMatch = `it(
-    "exported Primary",
-    async function(browser) {
-      const componentDefault2 = module.exports["default"];
-      if (componentDefault2 && componentDefault2.preRender) {
+    const textToMatch = [`const componentDefault2 = module.exports["default"];
+     const component = module.exports["Primary"];
+      let preRender = component && component.preRender || componentDefault2 && componentDefault2.preRender;
+      let postRender = component && component.postRender || componentDefault2 && componentDefault2.postRender;`,
+      // -----------------------
+      `if (preRender) {
         try {
-          await componentDefault2.preRender(browser, {
+          await preRender(browser, {
             id: "test-id",
             name: "Primary",
             title: "test-name"
@@ -61,9 +62,9 @@ describe('transform tests', function() {
           error.stack = err.stack;
           throw error;
         }
-      }
-      const component = module.exports["Primary"];
-      const test = await Promise.resolve(async function() {
+      }`,
+      // -----------------------
+      `const test = await Promise.resolve(async function() {
         return function(browser2) {
           browser2.init();
         };
@@ -72,13 +73,15 @@ describe('transform tests', function() {
         publicUrl: "/test/data/Button.stories.jsx",
         modulePath: "${path.join(__dirname, '../data/Button.stories.jsx')}",
         exportName: "Primary"
-      }));
-      const mountResult = await Promise.resolve(test(browser));
+      }));`,
+      // -----------------------
+      `const mountResult = await Promise.resolve(test(browser));
       const data = mountResult || {};
       if (data.preRenderError) {
         console.error(data.preRenderError.message);
-      }
-      if (component && component.test) {
+      }`,
+      // -----------------------
+      `if (component && component.test) {
         if (data.component instanceof Error) {
           throw data.component;
         } else {
@@ -87,10 +90,11 @@ describe('transform tests', function() {
       }
       if (data.postRenderError) {
         console.error(data.postRenderError.message);
-      }
-      if (componentDefault2 && componentDefault2.postRender) {
+      }`,
+      // -----------------------
+      `if (postRender) {
         try {
-          await componentDefault2.postRender(browser, {
+          await postRender(browser, {
             id: "test-id",
             name: "Primary",
             title: "test-name"
@@ -101,9 +105,7 @@ describe('transform tests', function() {
           error.stack = err.stack;
           throw error;
         }
-      }
-    }        
-  );`;
+      }`];
 
     const describeBlock = `describe(module.exports.default && module.exports.default.title ? module.exports.default.title : "Button.stories.jsx component", function() {
   let componentDefault;
@@ -151,7 +153,11 @@ describe('transform tests', function() {
   }
   `;
     const processed = text.replace(/\\u25BA/g, '').replace(/\s+/g, '');
-    assert.ok(processed.includes(textToMatch.replace(/\s+/g, '')));
+    textToMatch.forEach((text) => {
+      assert.ok(processed.includes(text.replace(/\s+/g, '')), `Did not find ${text} in processed text`);
+    });
+
+
     assert.ok(processed.includes(describeBlock.replace(/\s+/g, '')));
   });
 
